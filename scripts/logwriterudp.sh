@@ -1,0 +1,1 @@
+java -cp target/seglog-1.0-SNAPSHOT.jar br.dev.danielrl.App udp writer

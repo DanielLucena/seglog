@@ -1,0 +1,32 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "writer udp",
+            "request": "launch",
+            "mainClass": "br.dev.danielrl.App",
+            "projectName": "seglog",
+            "args": [
+                "udp",
+                "writer",
+                "--config=settings.json"
+            ]
+        },
+        {
+            "type": "java",
+            "name": "writer tcp",
+            "request": "launch",
+            "mainClass": "br.dev.danielrl.App",
+            "projectName": "seglog",
+            "args": [
+                "tcp",
+                "writer",
+                "--config=settings.json"
+            ]
+        }
+    ]
+}
