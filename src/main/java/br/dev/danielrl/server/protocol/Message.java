@@ -1,27 +1,33 @@
 package br.dev.danielrl.server.protocol;
 
-import com.google.gson.Gson;
+import java.net.InetAddress;
 
 public class Message {
-    private String verb;
-    private String path;
-    private Gson content;
+    private InetAddress address;
+    private int port;
+    private String messageText;
 
-    public Message(String verb, String path, Gson content) {
-        this.verb = verb;
-        this.path = path;
-        this.content = content;
+    public Message(InetAddress address, int port, String messageText) {
+        this.address = address;
+        this.port = port;
+        this.messageText = messageText;
     }
 
-    public Message fromString(String messageString) {
-        return new Gson().fromJson(messageString, Message.class);
+    public InetAddress getAddress() {
+        return address;
     }
-    @Override
-    public String toString() {
-        StringBuilder sb = new StringBuilder();
-        sb.append(verb).append(" ").append(path).append("\n");
-        sb.append(content.toString());
-        return sb.toString();
+
+    public int getPort() {
+        return port;
     }
+
+    public String getMessageText() {
+        return messageText;
+    }
+
+    public void setMessageText(String messageText) {
+        this.messageText = messageText;
+    }
+    
     
 }

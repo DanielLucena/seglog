@@ -3,16 +3,16 @@ package br.dev.danielrl.server.protocol;
 public class TcpProtocol implements CommunicationProtocol {
 
     @Override
-    public void send(String message) {
+    public void send(Message message) {
         // Implement TCP send logic here
         System.out.println("TCP Protocol: Sending message - " + message);
     }
 
     @Override
-    public String receive() {
+    public Message receive() {
         // Implement TCP receive logic here
         System.out.println("TCP Protocol: Receiving message...");
-        return "Received TCP message";
+        return null;
     }
 
     @Override

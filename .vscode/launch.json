@@ -12,7 +12,8 @@
             "projectName": "seglog",
             "args": [
                 "udp",
-                "writer",
+                "logwriter",
+                "9001",
                 "--config=settings.json"
             ]
         },
@@ -24,7 +25,8 @@
             "projectName": "seglog",
             "args": [
                 "tcp",
-                "writer",
+                "logwriter",
+                "9002",
                 "--config=settings.json"
             ]
         }

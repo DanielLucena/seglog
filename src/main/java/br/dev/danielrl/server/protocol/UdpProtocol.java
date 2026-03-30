@@ -1,67 +1,63 @@
 package br.dev.danielrl.server.protocol;
 
 import java.io.IOException;
+import java.net.BindException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
+import java.net.SocketException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class UdpProtocol implements CommunicationProtocol {
 
-    ExecutorService poolvthreads = Executors.newVirtualThreadPerTaskExecutor();
+    private ExecutorService poolvthreads = Executors.newVirtualThreadPerTaskExecutor();
+
+    private DatagramSocket serversocket;
 
     @Override
-    public void send(String message) {
-        // Implement UDP send logic here
-        System.out.println("Sending via UDP: " + message);
+    public void send(Message message) {
+        String response = message.getMessageText();
+        byte[] sendData = response.getBytes();
+        DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, message.getAddress(),
+                message.getPort());
+        try {
+            this.serversocket.send(sendPacket);
+            System.out.println("Sent response: " + response);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     @Override
-    public String receive() {
+    public Message receive() {
         // Implement UDP receive logic here
-        String receivedMessage = "Received message via UDP";
-        System.out.println(receivedMessage);
-        return receivedMessage;
+        byte[] receivemessage = new byte[1024];
+        DatagramPacket receivepacket = new DatagramPacket(receivemessage, receivemessage.length);
+        try {
+            this.serversocket.receive(receivepacket);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        String message = new String(receivepacket.getData(), 0, receivepacket.getLength());
+        // poolvthreads.submit(() -> {
+        // processarMensagem(message, receivepacket, serversocket);
+        // });
+        return new Message(receivepacket.getAddress(), receivepacket.getPort(), message);
     }
 
     @Override
     public void startServer(int port) {
-        // Implement UDP server start logic here
         System.out.println("Starting UDP server on port: " + port);
-        		try {
-			DatagramSocket serversocket = new DatagramSocket(port);
-			while (true) {
-				byte[] receivemessage = new byte[1024];
-				DatagramPacket receivepacket = new DatagramPacket(receivemessage, receivemessage.length);
-				serversocket.receive(receivepacket);
-				String message = new String(receivepacket.getData(), 0, receivepacket.getLength());
-				poolvthreads.submit(() -> {
-					processarMensagem(message, receivepacket, serversocket);
-				});
-
-			}
-		} catch (IOException e) {
-			e.printStackTrace();
-		} catch (NumberFormatException nfe) {
-			System.out.println("Erro ao converter numero: " + nfe.getMessage());
-
-		} catch (Exception e) {
-			System.out.println("Erro inesperado: " + e.getMessage());
-		}
-		System.out.println("UDP Bank server terminating");
-    }
-
-    private void processarMensagem(String message, DatagramPacket receivepacket, DatagramSocket serversocket) {
-        System.out.println("Processing message: " + message);
-        // Here you can add logic to process the received message and send a response if needed
-        String response = "Processed: " + message;
-        byte[] sendData = response.getBytes();
-        DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, receivepacket.getAddress(), receivepacket.getPort());
         try {
-            serversocket.send(sendPacket);
-            System.out.println("Sent response: " + response);
-        } catch (IOException e) {
+            this.serversocket = new DatagramSocket(port);
+        } catch ( BindException e) {
+            System.out.println("Porta " + port + " Já está em uso. Por favor, escolha outra porta.");
+            return;
+         }
+        catch (SocketException e) {
             e.printStackTrace();
+        } catch (Exception e) {
+            System.out.println("Erro inesperado: " + e.getMessage());
         }
     }
 }
