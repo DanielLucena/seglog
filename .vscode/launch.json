@@ -10,10 +10,24 @@
             "request": "launch",
             "mainClass": "br.dev.danielrl.App",
             "projectName": "seglog",
+            "consoleTitle": "internalConsole",
             "args": [
                 "udp",
                 "logwriter",
                 "9001",
+                "--config=settings.json"
+            ]
+        },
+        {
+            "type": "java",
+            "name": "gateway udp",
+            "request": "launch",
+            "mainClass": "br.dev.danielrl.App",
+            "projectName": "seglog",
+            "args": [
+                "udp",
+                "gateway",
+                "9000",
                 "--config=settings.json"
             ]
         },
@@ -27,6 +41,19 @@
                 "tcp",
                 "logwriter",
                 "9002",
+                "--config=settings.json"
+            ]
+        },
+        {
+            "type": "java",
+            "name": "testing udp",
+            "request": "launch",
+            "mainClass": "br.dev.danielrl.App",
+            "projectName": "seglog",
+            "args": [
+                "udp",
+                "testing-client",
+                "9003",
                 "--config=settings.json"
             ]
         }

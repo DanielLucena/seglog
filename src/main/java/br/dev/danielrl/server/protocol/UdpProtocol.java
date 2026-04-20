@@ -16,7 +16,7 @@ public class UdpProtocol implements CommunicationProtocol {
 
     @Override
     public void send(Message message) {
-        String response = message.getMessageText();
+        String response = message.getRawText();
         byte[] sendData = response.getBytes();
         DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, message.getAddress(),
                 message.getPort());

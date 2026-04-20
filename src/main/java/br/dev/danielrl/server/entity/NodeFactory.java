@@ -1,5 +1,7 @@
 package br.dev.danielrl.server.entity;
 
+import java.net.InetAddress;
+
 import br.dev.danielrl.server.protocol.CommunicationProtocol;
 
 public class NodeFactory {
@@ -9,7 +11,9 @@ public class NodeFactory {
             case "logwriter":
                 return new LogWriterNode(protocol, port);
             case "gateway":
-                return new Gateway(protocol, port);    
+                return new Gateway(protocol, port);
+            case "testing-client":
+                return new TestingClient(protocol, port);
             default:
                 throw new IllegalArgumentException("Unsupported node type: " + nodeType);
         }

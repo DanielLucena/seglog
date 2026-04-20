@@ -1,5 +1,8 @@
 package br.dev.danielrl;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+
 import br.dev.danielrl.server.entity.DistributedNode;
 import br.dev.danielrl.server.entity.NodeFactory;
 import br.dev.danielrl.server.protocol.CommunicationProtocol;
@@ -15,6 +18,13 @@ public class App
     {
 
         System.out.println( "Hello World!" );
+
+        try {
+            InetAddress localHost = InetAddress.getLocalHost();
+            System.out.println("Local host address: " + localHost.getHostAddress());
+        } catch (UnknownHostException e) {
+            System.out.println("Unable to get local host address: " + e.getMessage());
+        }
 
         String protocolType = args.length > 0 ? args[0] : "http";
         System.out.println( "Using protocol: " + protocolType );
