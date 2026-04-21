@@ -30,10 +30,8 @@ public class Gateway implements DistributedNode {
     @Override
     public void start() {
         System.out.println("Gateway node is starting...");
-        // Here you would add logic to start the gateway, such as listening for incoming
-        // connections
-        // and routing messages to the appropriate nodes in the distributed system.
         protocol.startServer(port);
+        System.out.println("Gateway is running and waiting for messages...");
         while (true) {
             // Wait for incoming messages
             // For example, you could receive messages and route them to other nodes based
@@ -54,7 +52,7 @@ public class Gateway implements DistributedNode {
                 default:
                     break;
             }
-            System.out.println("Gateway is running and waiting for messages...");
+            
             // You would implement the logic to receive messages and route them here
             // For example, you could use protocol.receiveMessage() to get incoming messages
             // and then route them using protocol.sendMessage() to the appropriate nodes
