@@ -1,6 +1,5 @@
 package br.dev.danielrl.server.entity;
 
-import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 

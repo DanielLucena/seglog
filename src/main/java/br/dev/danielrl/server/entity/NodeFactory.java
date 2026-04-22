@@ -1,7 +1,5 @@
 package br.dev.danielrl.server.entity;
 
-import java.net.InetAddress;
-
 import br.dev.danielrl.server.protocol.CommunicationProtocol;
 
 public class NodeFactory {

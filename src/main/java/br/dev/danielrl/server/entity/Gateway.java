@@ -41,7 +41,7 @@ public class Gateway implements DistributedNode {
 
             switch (receivedMessage.getEndpoint()) {
                 case "heartbeat":
-                    System.out.println("Received heartbeat: " + receivedMessage.getBody());
+                    // System.out.println("Received heartbeat: " + receivedMessage.getBody());
                     handleHeartbeatRequest(receivedMessage);
                     break;
                 case "writeLog":
