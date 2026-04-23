@@ -5,34 +5,30 @@ import java.net.UnknownHostException;
 
 import com.google.gson.Gson;
 
+import br.dev.danielrl.domain.LogQuery;
 import br.dev.danielrl.server.heartbeat.HeartBeatScheduler;
 import br.dev.danielrl.server.heartbeat.ServiceInstance;
 import br.dev.danielrl.server.protocol.CommunicationProtocol;
 import br.dev.danielrl.server.protocol.Message;
-import br.dev.danielrl.server.service.ConsolidationRequest;
 import br.dev.danielrl.server.service.GatewayEnvelope;
-import br.dev.danielrl.server.service.SegmentedLogConsolidationService;
-import br.dev.danielrl.server.service.SegmentedLogWriteService;
+import br.dev.danielrl.server.service.SegmentedLogReadService;
 import br.dev.danielrl.server.service.ServiceJsonResponse;
 
+public class LogReaderNode implements DistributedNode {
 
-public class LogWriterNode implements DistributedNode {
-
-    private CommunicationProtocol protocol;
-    private int port;
+    private final CommunicationProtocol protocol;
+    private final int port;
     private InetAddress local;
     private HeartBeatScheduler heartBeatScheduler;
     private final Gson gson = new Gson();
-    private final String writerId;
-    private final SegmentedLogWriteService writeService;
-    private final SegmentedLogConsolidationService consolidationService;
+    private final String readerId;
+    private final SegmentedLogReadService readService;
 
-    public LogWriterNode(CommunicationProtocol protocol, int port) {
+    public LogReaderNode(CommunicationProtocol protocol, int port) {
         this.protocol = protocol;
         this.port = port;
-        this.writerId = "logwriter-" + port;
-        this.writeService = new SegmentedLogWriteService(writerId);
-        this.consolidationService = new SegmentedLogConsolidationService();
+        this.readerId = "logreader-" + port;
+        this.readService = new SegmentedLogReadService();
         try {
             this.local = InetAddress.getLocalHost();
         } catch (UnknownHostException e) {
@@ -42,18 +38,16 @@ public class LogWriterNode implements DistributedNode {
 
     @Override
     public void start() {
-        System.out.println("LogWriterNode is starting with the protocol: " + protocol.getClass().getSimpleName());
-        // Inicia o servidor
+        System.out.println("LogReaderNode is starting with the protocol: " + protocol.getClass().getSimpleName());
         protocol.startServer(port);
-        heartBeatScheduler = new HeartBeatScheduler(this::sendHeartbeat, 5000l);
+        heartBeatScheduler = new HeartBeatScheduler(this::sendHeartbeat, 5000L);
         heartBeatScheduler.start();
-        while (true) {
 
+        while (true) {
             Message message = protocol.receive();
             if (message == null) {
                 continue;
             }
-            System.out.println("LogWriterNode received endpoint=" + message.getEndpoint());
 
             GatewayEnvelope envelope = tryParseEnvelope(message.getBody());
             String payload = envelope != null ? envelope.getPayload() : message.getBody();
@@ -63,20 +57,15 @@ public class LogWriterNode implements DistributedNode {
 
             String responseBody;
             String responseEndpoint;
-
             switch (message.getEndpoint()) {
-                case "writeLog":
-                    responseBody = writeService.registerEvent(payload);
-                    responseEndpoint = "writeLogResponse";
-                    break;
-                case "consolidateLogs":
-                    ConsolidationRequest request = gson.fromJson(payload, ConsolidationRequest.class);
-                    responseBody = consolidationService.consolidate(request.getStartTimestamp(), request.getEndTimestamp());
-                    responseEndpoint = "consolidateLogsResponse";
+                case "readLog":
+                    LogQuery query = gson.fromJson(payload, LogQuery.class);
+                    responseBody = readService.read(query);
+                    responseEndpoint = "readLogResponse";
                     break;
                 default:
                     responseBody = ServiceJsonResponse.error("UNSUPPORTED_ENDPOINT",
-                            "LogWriterNode does not support endpoint: " + message.getEndpoint());
+                            "LogReaderNode does not support endpoint: " + message.getEndpoint());
                     responseEndpoint = "error";
                     break;
             }
@@ -103,12 +92,8 @@ public class LogWriterNode implements DistributedNode {
     }
 
     private void sendHeartbeat() {
-        System.out.println("Sending heartbeat from LogWriterNode...");
-
-        Gson mapper = new Gson();
-        String json = mapper.toJson(new ServiceInstance(writerId, "logwriter", local.getHostAddress(), port));
+        String json = gson.toJson(new ServiceInstance(readerId, "logreader", local.getHostAddress(), port));
         Message heartbeatMessage = new Message(local, 9000, "heartbeat", json);
         protocol.send(heartbeatMessage);
     }
-
 }

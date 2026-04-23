@@ -21,7 +21,7 @@
         },
         {
             "type": "java",
-            "name": "writer udp",
+            "name": "writer udp 1",
             "request": "launch",
             "mainClass": "br.dev.danielrl.LogWritterMain",
             "projectName": "seglog",
@@ -34,14 +34,40 @@
         },
         {
             "type": "java",
-            "name": "reader udp",
+            "name": "writer udp 2",
+            "request": "launch",
+            "mainClass": "br.dev.danielrl.LogWritterMain",
+            "projectName": "seglog",
+            "args": [
+                "udp",
+                "logwriter",
+                "9002",
+                "--config=settings.json"
+            ]
+        },
+        {
+            "type": "java",
+            "name": "reader udp 1",
             "request": "launch",
             "mainClass": "br.dev.danielrl.LogReaderMain",
             "projectName": "seglog",
             "args": [
                 "udp",
                 "logreader",
-                "9002",
+                "9011",
+                "--config=settings.json"
+            ]
+        },
+        {
+            "type": "java",
+            "name": "reader udp 2",
+            "request": "launch",
+            "mainClass": "br.dev.danielrl.LogReaderMain",
+            "projectName": "seglog",
+            "args": [
+                "udp",
+                "logreader",
+                "9012",
                 "--config=settings.json"
             ]
         },
@@ -117,8 +143,10 @@
             "name": "udp all (gateway+writer+reader+testing)",
             "configurations": [
                 "gateway udp",
-                "writer udp",
-                "reader udp",
+                "writer udp 1",
+                "writer udp 2",
+                "reader udp 1",
+                "reader udp 2",
                 "testing udp"
             ],
             "stopAll": true

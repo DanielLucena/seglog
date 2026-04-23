@@ -8,6 +8,8 @@ public class NodeFactory {
         switch (nodeType.toLowerCase()) {
             case "logwriter":
                 return new LogWriterNode(protocol, port);
+            case "logreader":
+                return new LogReaderNode(protocol, port);
             case "gateway":
                 return new Gateway(protocol, port);
             case "testing-client":

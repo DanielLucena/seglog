@@ -30,7 +30,6 @@ public class UdpProtocol implements CommunicationProtocol {
 
     @Override
     public Message receive() {
-        // Implement UDP receive logic here
         byte[] receivemessage = new byte[1024];
         DatagramPacket receivepacket = new DatagramPacket(receivemessage, receivemessage.length);
         try {

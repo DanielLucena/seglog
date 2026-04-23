@@ -1,6 +1,12 @@
 package br.dev.danielrl.server.entity;
 
+import java.net.InetAddress;
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -12,19 +18,38 @@ import br.dev.danielrl.server.heartbeat.NodeHBInfo;
 import br.dev.danielrl.server.heartbeat.ServiceInstance;
 import br.dev.danielrl.server.protocol.CommunicationProtocol;
 import br.dev.danielrl.server.protocol.Message;
+import br.dev.danielrl.server.service.GatewayEnvelope;
+import br.dev.danielrl.server.service.ServiceJsonResponse;
 
 public class Gateway implements DistributedNode {
 
     private CommunicationProtocol protocol;
     private int port;
-    private AbstractFailureDetector failureDetector;
-    private CopyOnWriteArrayList<NodeHBInfo> nodeHBInfos = new CopyOnWriteArrayList<>();
+    // private AbstractFailureDetector failureDetector;
+    // private CopyOnWriteArrayList<NodeHBInfo> nodeHBInfos = new CopyOnWriteArrayList<>();
     private final Map<String, ServiceInstance> registry = new ConcurrentHashMap<>();
+    private final Map<String, ClientTarget> pendingRequests = new ConcurrentHashMap<>();
+    private final AtomicInteger writerCursor = new AtomicInteger(0);
+    private final AtomicInteger readerCursor = new AtomicInteger(0);
+    private final Gson gson = new Gson();
+    private static final long REQUEST_TTL_MS = 10_000L;
+
+    private static final class ClientTarget {
+        private final InetAddress address;
+        private final int port;
+        private final long createdAt;
+
+        private ClientTarget(InetAddress address, int port, long createdAt) {
+            this.address = address;
+            this.port = port;
+            this.createdAt = createdAt;
+        }
+    }
 
     public Gateway(CommunicationProtocol protocol, int port) {
         this.protocol = protocol;
         this.port = port;
-        this.failureDetector = new FaliureDetector();
+        // this.failureDetector = new FaliureDetector();
     }
 
     @Override
@@ -33,39 +58,47 @@ public class Gateway implements DistributedNode {
         protocol.startServer(port);
         System.out.println("Gateway is running and waiting for messages...");
         while (true) {
-            // Wait for incoming messages
-            // For example, you could receive messages and route them to other nodes based
-            // on some logic
-            // This is a placeholder for the actual gateway logic
-            Message receivedMessage = protocol.receive(); // This would be your method to receive messages
+            evictExpiredPendingRequests();
+
+            Message receivedMessage = protocol.receive();
 
             switch (receivedMessage.getEndpoint()) {
                 case "heartbeat":
                     // System.out.println("Received heartbeat: " + receivedMessage.getBody());
                     handleHeartbeatRequest(receivedMessage);
                     break;
+                case "gatewayPing":
+                    handleGatewayPingRequest(receivedMessage);
+                    break;
                 case "writeLog":
                     System.out.println("Received write log request: " + receivedMessage.getBody());
                     handleWriteLogRequest(receivedMessage);
+                    break;
+                case "readLog":
+                    System.out.println("Received read log request: " + receivedMessage.getBody());
+                    handleReadLogRequest(receivedMessage);
+                    break;
+                case "consolidateLogs":
+                    System.out.println("Received consolidate logs request: " + receivedMessage.getBody());
+                    handleConsolidateLogsRequest(receivedMessage);
+                    break;
+                case "writeLogResponse":
+                case "readLogResponse":
+                case "consolidateLogsResponse":
+                case "error":
+                    handleServiceResponse(receivedMessage);
                     break;
 
                 default:
                     break;
             }
-            
-            // You would implement the logic to receive messages and route them here
-            // For example, you could use protocol.receiveMessage() to get incoming messages
-            // and then route them using protocol.sendMessage() to the appropriate nodes
         }
 
     }
 
     private void handleHeartbeatRequest(Message request) {
         try {
-            Gson mapper = new Gson();
-            String json = request.getBody();
-
-            ServiceInstance instance = mapper.fromJson(json, ServiceInstance.class);
+            ServiceInstance instance = gson.fromJson(request.getBody(), ServiceInstance.class);
 
             instance.setLastHeartbeat(System.currentTimeMillis());
             registry.put(instance.getId(), instance);
@@ -76,9 +109,96 @@ public class Gateway implements DistributedNode {
     }
 
     private void handleWriteLogRequest(Message request) {
-        // Implement logic to handle write log requests, such as routing them to a
-        // LogWriterNode
-        System.out.println("Handling write log request: " + request.getBody());
-        protocol.send(request); // This is a placeholder for the actual logic to route the request to a LogWriterNode
+        forwardWithRoundRobin(request, "logwriter", writerCursor);
+    }
+
+    private void handleGatewayPingRequest(Message request) {
+        String body = ServiceJsonResponse.success("GATEWAY_ALIVE", "Gateway is alive", null);
+        protocol.send(new Message(request.getAddress(), request.getPort(), "gatewayPong", body));
+    }
+
+    private void handleReadLogRequest(Message request) {
+        forwardWithRoundRobin(request, "logreader", readerCursor);
+    }
+
+    private void handleConsolidateLogsRequest(Message request) {
+        forwardWithRoundRobin(request, "logwriter", writerCursor);
+    }
+
+    private void handleServiceResponse(Message response) {
+        GatewayEnvelope envelope = tryParseEnvelope(response.getBody());
+        if (envelope == null || envelope.getRequestId() == null || envelope.getRequestId().isBlank()) {
+            return;
+        }
+
+        ClientTarget target = pendingRequests.remove(envelope.getRequestId());
+        if (target == null) {
+            return;
+        }
+
+        String body = envelope.getPayload() == null ? "" : envelope.getPayload();
+        protocol.send(new Message(target.address, target.port, response.getEndpoint(), body));
+    }
+
+    private void forwardWithRoundRobin(Message request, String targetType, AtomicInteger cursor) {
+        try {
+            ServiceInstance target = pickInstance(targetType, cursor);
+            if (target == null) {
+                String body = ServiceJsonResponse.error("NO_TARGET_AVAILABLE",
+                        "No active target found for type=" + targetType);
+                protocol.send(new Message(request.getAddress(), request.getPort(), "error", body));
+                return;
+            }
+
+                String requestId = UUID.randomUUID().toString();
+                pendingRequests.put(requestId, new ClientTarget(request.getAddress(), request.getPort(), System.currentTimeMillis()));
+
+            GatewayEnvelope envelope = new GatewayEnvelope(
+                    request.getBody(),
+                    requestId);
+
+            Message forwarded = new Message(
+                    InetAddress.getByName(target.getHost()),
+                    target.getPort(),
+                    request.getEndpoint(),
+                    gson.toJson(envelope));
+
+            protocol.send(forwarded);
+        } catch (Exception e) {
+            String body = ServiceJsonResponse.error("FORWARDING_ERROR", e.getMessage());
+            protocol.send(new Message(request.getAddress(), request.getPort(), "error", body));
+        }
+    }
+
+    private GatewayEnvelope tryParseEnvelope(String body) {
+        try {
+            GatewayEnvelope envelope = gson.fromJson(body, GatewayEnvelope.class);
+            if (envelope != null && envelope.getRequestId() != null && !envelope.getRequestId().isBlank()) {
+                return envelope;
+            }
+            return null;
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private void evictExpiredPendingRequests() {
+        long now = System.currentTimeMillis();
+        pendingRequests.entrySet().removeIf(entry -> now - entry.getValue().createdAt > REQUEST_TTL_MS);
+    }
+
+    private ServiceInstance pickInstance(String type, AtomicInteger cursor) {
+        List<ServiceInstance> instances = new ArrayList<>();
+        for (ServiceInstance instance : registry.values()) {
+            if (instance.getType() != null && instance.getType().equalsIgnoreCase(type)) {
+                instances.add(instance);
+            }
+        }
+        if (instances.isEmpty()) {
+            return null;
+        }
+        instances.sort(Comparator.comparing(ServiceInstance::getId));
+        int index = Math.floorMod(cursor.getAndIncrement(), instances.size());
+        return instances.get(index);
     }
 }

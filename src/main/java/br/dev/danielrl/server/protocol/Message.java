@@ -13,10 +13,25 @@ public class Message {
         this.address = address;
         this.port = port;
         this.rawText = rawText;
-        String[] parts = rawText.split("\n", 2);
-        if (parts.length == 2) {
-            this.endpoint = parts[0];
-            this.body = parts[1];
+        int separatorIndex = rawText.indexOf('\n');
+        if (separatorIndex < 0) {
+            separatorIndex = rawText.indexOf('\r');
+        }
+
+        // caso com body separa o endpoint do body pelo primeiro \n ou \r 
+        if (separatorIndex >= 0) {
+            this.endpoint = rawText.substring(0, separatorIndex).trim();
+
+            int bodyStart = separatorIndex + 1;
+            if (rawText.charAt(separatorIndex) == '\r' && bodyStart < rawText.length()
+                    && rawText.charAt(bodyStart) == '\n') {
+                bodyStart++;
+            }
+            this.body = rawText.substring(bodyStart);
+        } else {
+            // caso sem body
+            this.endpoint = rawText.trim();
+            this.body = "";
         }
     }
 
@@ -42,7 +57,7 @@ public class Message {
         else {
             StringBuilder sb = new StringBuilder();
             sb.append(endpoint);
-            sb.append("\n");
+            sb.append("\r\n");
             sb.append(body);
             return sb.toString();
         }

@@ -4,22 +4,21 @@ public class TcpProtocol implements CommunicationProtocol {
 
     @Override
     public void send(Message message) {
-        // Implement TCP send logic here
+        // TODO: implementar logica para enviar mensagens TCP
         System.out.println("TCP Protocol: Sending message - " + message);
     }
 
     @Override
     public Message receive() {
-        // Implement TCP receive logic here
+        // TODO: implementar logica para receber mensagens TCP
         System.out.println("TCP Protocol: Receiving message...");
         return null;
     }
 
     @Override
     public void startServer(int port) {
-        // Implement TCP server start logic here
+        // TODO: implementar logica para iniciar um servidor TCP escutando na porta passada
         System.out.println("TCP Protocol: Starting server on port " + port);
-        // Here you would add the actual server socket code to listen for incoming connections
     }
 
 }
