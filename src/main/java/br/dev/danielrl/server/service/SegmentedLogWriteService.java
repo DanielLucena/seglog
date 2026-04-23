@@ -57,6 +57,34 @@ public class SegmentedLogWriteService {
         }
     }
 
+    public synchronized String registerEventMock(String rawPayload) {
+        try {
+            JsonObject event = parsePayload(rawPayload);
+            long eventTimestamp = event.has("timestamp") && event.get("timestamp").isJsonPrimitive()
+                    ? event.get("timestamp").getAsLong()
+                    : System.currentTimeMillis();
+
+            event.addProperty("timestamp", eventTimestamp);
+            if (!event.has("eventId")) {
+                event.addProperty("eventId", UUID.randomUUID().toString());
+            }
+            if (!event.has("sourceWriterId")) {
+                event.addProperty("sourceWriterId", writerId);
+            }
+
+            System.out.println("[MOCK] Event simulated as persisted: " + gson.toJson(event));
+
+            JsonObject data = new JsonObject();
+            data.addProperty("writerId", writerId);
+            data.addProperty("timestamp", eventTimestamp);
+            data.addProperty("mock", true);
+
+            return ServiceJsonResponse.success("WRITE_OK_MOCK", "Event simulated in terminal only.", data);
+        } catch (Exception e) {
+            return ServiceJsonResponse.error("WRITE_ERROR_MOCK", "Could not simulate event: " + e.getMessage());
+        }
+    }
+
     private JsonObject parsePayload(String rawPayload) {
         try {
             return JsonParser.parseString(rawPayload).getAsJsonObject();

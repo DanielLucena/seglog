@@ -3,18 +3,17 @@ package br.dev.danielrl.server.entity;
 import java.net.InetAddress;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 import com.google.gson.Gson;
 
-import br.dev.danielrl.server.heartbeat.AbstractFailureDetector;
-import br.dev.danielrl.server.heartbeat.FaliureDetector;
-import br.dev.danielrl.server.heartbeat.NodeHBInfo;
 import br.dev.danielrl.server.heartbeat.ServiceInstance;
 import br.dev.danielrl.server.protocol.CommunicationProtocol;
 import br.dev.danielrl.server.protocol.Message;
@@ -32,6 +31,9 @@ public class Gateway implements DistributedNode {
     private final AtomicInteger writerCursor = new AtomicInteger(0);
     private final AtomicInteger readerCursor = new AtomicInteger(0);
     private final Gson gson = new Gson();
+    private final ScheduledExecutorService healthCheckExecutor = Executors.newSingleThreadScheduledExecutor();
+    private static final long HEARTBEAT_CHECK_INTERVAL_MS = 10_000L;
+    private static final long HEARTBEAT_TIMEOUT_MS = 20_000L;
     private static final long REQUEST_TTL_MS = 10_000L;
 
     private static final class ClientTarget {
@@ -56,11 +58,15 @@ public class Gateway implements DistributedNode {
     public void start() {
         System.out.println("Gateway node is starting...");
         protocol.startServer(port);
+        startRegistryHealthCheck();
         System.out.println("Gateway is running and waiting for messages...");
         while (true) {
             evictExpiredPendingRequests();
 
             Message receivedMessage = protocol.receive();
+            if (receivedMessage == null) {
+                continue;
+            }
 
             switch (receivedMessage.getEndpoint()) {
                 case "heartbeat":
@@ -185,6 +191,29 @@ public class Gateway implements DistributedNode {
     private void evictExpiredPendingRequests() {
         long now = System.currentTimeMillis();
         pendingRequests.entrySet().removeIf(entry -> now - entry.getValue().createdAt > REQUEST_TTL_MS);
+    }
+
+    private void startRegistryHealthCheck() {
+        healthCheckExecutor.scheduleWithFixedDelay(
+                this::evictStaleServiceInstances,
+                HEARTBEAT_CHECK_INTERVAL_MS,
+                HEARTBEAT_CHECK_INTERVAL_MS,
+                TimeUnit.MILLISECONDS);
+    }
+
+    private void evictStaleServiceInstances() {
+        long now = System.currentTimeMillis();
+        registry.entrySet().removeIf(entry -> {
+            ServiceInstance instance = entry.getValue();
+            boolean stale = now - instance.getLastHeartbeat() > HEARTBEAT_TIMEOUT_MS;
+            if (stale) {
+                System.out.println("Removing stale instance from registry: id=" + instance.getId()
+                        + ", type=" + instance.getType()
+                        + ", host=" + instance.getHost()
+                        + ", port=" + instance.getPort());
+            }
+            return stale;
+        });
     }
 
     private ServiceInstance pickInstance(String type, AtomicInteger cursor) {

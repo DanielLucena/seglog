@@ -65,8 +65,10 @@ public class LogWriterNode implements DistributedNode {
             String responseEndpoint;
 
             switch (message.getEndpoint()) {
-                case "writeLog":
-                    responseBody = writeService.registerEvent(payload);
+                case "writeLog":    
+                    // responseBody = writeService.registerEvent(payload);
+                    // todo: RETIRAR para escrita de fato acontecer
+                    responseBody = writeService.registerEventMock(payload);
                     responseEndpoint = "writeLogResponse";
                     break;
                 case "consolidateLogs":
