@@ -98,7 +98,6 @@ public class SegmentedLogConsolidationService {
                 }
             }
         } catch (Exception ignored) {
-            // Skips malformed files without failing the whole consolidation.
         }
     }
 
